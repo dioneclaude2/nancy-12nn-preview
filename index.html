@@ -9,7 +9,7 @@
 <style>
   :root { --bg:#FDF7EB; --ink:#2A1A24; --soft:#6E5A66; --line:#E9DDCF; --pink:#E000B8; --card:#FFFDF8; --err:#B3261E; }
   @media (prefers-color-scheme: dark) { :root { --bg:#1B1218; --ink:#F6ECE2; --soft:#BBA9B4; --line:#3A2A35; --pink:#FF4FD8; --card:#251922; --err:#FF8A80; color-scheme: dark; } }
-  html, body { overflow-x: hidden; max-width: 100%; margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  html, body { overflow-x: clip; max-width: 100%; margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; }
   #gate { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; box-sizing: border-box; }
   .card { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 32px 28px; box-sizing: border-box; }
   h1 { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 30px; line-height: 1.1; margin: 0 0 8px; }
@@ -62,7 +62,7 @@
 <div id="page" hidden></div>
 <div id="lb" role="dialog" aria-modal="true" aria-label="Post preview"><div class="count"></div><div class="stage"></div><button type="button" class="nav prev" aria-label="Previous slide">&lsaquo;</button><button type="button" class="nav next" aria-label="Next slide">&rsaquo;</button><button type="button" class="x" aria-label="Close">&times;</button><div class="dots"></div><a class="refbtn" target="_blank" rel="noopener" hidden>See reference &#8599;</a><div class="lbcap"></div></div>
 <script>
-const SALT = '00b97626da34f132092f21ef34402c83', ITER = 250000;
+const SALT = '46eda4bd909550a08549deeb49baeb82', ITER = 250000;
 const hex = h => new Uint8Array(h.match(/../g).map(b => parseInt(b, 16)));
 const norm = p => p.toLowerCase().split(/\s+/).filter(Boolean).join(' ');
 async function keyFor(pw) {
@@ -95,11 +95,14 @@ f.addEventListener('submit', async e => {
   try { urls = await Promise.all(eager.map(blobUrl)); }
   catch (err) { msg.className = 'err'; msg.textContent = 'The page was just updated. Please refresh and try again.'; go.disabled = false; return; }
   eager.forEach((a, i) => { html = html.split('"' + a.p + '"').join('"' + urls[i] + '"'); });
+  const fixX = () => { if (window.scrollX !== 0) window.scrollTo(0, window.scrollY); if (document.documentElement.scrollLeft) document.documentElement.scrollLeft = 0; if (document.body.scrollLeft) document.body.scrollLeft = 0; };
+  window.addEventListener('scroll', fixX, { passive: true }); window.addEventListener('resize', fixX);
   document.title = data.title;
   const page = document.getElementById('page');
   page.innerHTML = html;
   document.getElementById('gate').remove();
   page.hidden = false;
+  fixX();
   const vids = [...page.querySelectorAll('video[data-src]')];
   (async () => {
     let i = 0;
