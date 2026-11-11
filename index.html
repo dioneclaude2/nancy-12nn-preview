@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Private preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&display=swap">
+<style>
+  :root { --bg:#FDF7EB; --ink:#2A1A24; --soft:#6E5A66; --line:#E9DDCF; --pink:#E000B8; --card:#FFFDF8; --err:#B3261E; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1B1218; --ink:#F6ECE2; --soft:#BBA9B4; --line:#3A2A35; --pink:#FF4FD8; --card:#251922; --err:#FF8A80; color-scheme: dark; } }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  #gate { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; box-sizing: border-box; }
+  .card { width: 100%; max-width: 380px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 32px 28px; box-sizing: border-box; }
+  h1 { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 30px; line-height: 1.1; margin: 0 0 8px; }
+  h1 em { color: var(--pink); font-weight: 400; }
+  p { margin: 0 0 20px; color: var(--soft); font-size: 15px; line-height: 1.5; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  input { width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  input:focus { outline: 2px solid var(--pink); outline-offset: 1px; }
+  button { margin-top: 14px; width: 100%; font: inherit; font-weight: 600; font-size: 15px; padding: 12px; border: 0; border-radius: 10px; background: var(--ink); color: var(--bg); cursor: pointer; }
+  button:disabled { opacity: .6; cursor: default; }
+  #msg { min-height: 20px; margin-top: 12px; font-size: 13px; color: var(--soft); }
+  #msg.err { color: var(--err); }
+</style>
+</head>
+<body>
+<div id="gate">
+  <form class="card" id="f" autocomplete="off">
+    <h1>12 Naughty Nights <em>preview</em></h1>
+    <p>This draft is private. Enter the password to open it.</p>
+    <label for="pw">Password</label>
+    <input id="pw" type="password" autofocus>
+    <button id="go" type="submit">Open</button>
+    <div id="msg" role="status"></div>
+  </form>
+</div>
+<div id="page" hidden></div>
+<script>
+const SALT = 'f4bea166519b4b344ce89782ca5817ac', ITER = 250000;
+const hex = h => new Uint8Array(h.match(/../g).map(b => parseInt(b, 16)));
+const norm = p => p.toLowerCase().split(/\s+/).filter(Boolean).join(' ');
+async function keyFor(pw) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(norm(pw)), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: hex(SALT), iterations: ITER, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+}
+async function open1(key, file) {
+  const buf = new Uint8Array(await (await fetch('d/' + file)).arrayBuffer());
+  return crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.slice(0, 12) }, key, buf.slice(12));
+}
+const f = document.getElementById('f'), msg = document.getElementById('msg'), go = document.getElementById('go');
+f.addEventListener('submit', async e => {
+  e.preventDefault();
+  msg.className = ''; msg.textContent = 'Checking…'; go.disabled = true;
+  let key, data;
+  try {
+    key = await keyFor(document.getElementById('pw').value);
+    data = JSON.parse(new TextDecoder().decode(await open1(key, 'page.bin')));
+  } catch (err) {
+    msg.className = 'err'; msg.textContent = 'That password is not right. Try again.'; go.disabled = false; return;
+  }
+  let html = data.html, done = 0;
+  for (const a of data.assets) {
+    msg.textContent = `Loading ${++done} of ${data.assets.length}…`;
+    const url = URL.createObjectURL(new Blob([await open1(key, a.f)], { type: a.m }));
+    html = html.split('"' + a.p + '"').join('"' + url + '"');
+  }
+  document.title = data.title;
+  const page = document.getElementById('page');
+  page.innerHTML = html;
+  document.getElementById('gate').remove();
+  page.hidden = false;
+  page.querySelectorAll('video').forEach(v => { v.muted = true; v.play().catch(() => {}); });
+});
+</script>
+</body>
+</html>
