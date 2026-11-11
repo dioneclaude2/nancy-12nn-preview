@@ -62,7 +62,7 @@
 <div id="page" hidden></div>
 <div id="lb" role="dialog" aria-modal="true" aria-label="Post preview"><div class="count"></div><div class="stage"></div><button type="button" class="nav prev" aria-label="Previous slide">&lsaquo;</button><button type="button" class="nav next" aria-label="Next slide">&rsaquo;</button><button type="button" class="x" aria-label="Close">&times;</button><div class="dots"></div><a class="refbtn" target="_blank" rel="noopener" hidden>See reference &#8599;</a><div class="lbcap"></div></div>
 <script>
-const SALT = 'f4b7d331a7651d67306a66e6cb114dc5', ITER = 250000;
+const SALT = '700853133cb9a09a9c541564ee7098c2', ITER = 250000;
 const hex = h => new Uint8Array(h.match(/../g).map(b => parseInt(b, 16)));
 const norm = p => p.toLowerCase().split(/\s+/).filter(Boolean).join(' ');
 async function keyFor(pw) {
