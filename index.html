@@ -22,13 +22,25 @@
   button:disabled { opacity: .6; cursor: default; }
   #msg { min-height: 20px; margin-top: 12px; font-size: 13px; color: var(--soft); }
   #msg.err { color: var(--err); }
-  #lb { position: fixed; inset: 0; z-index: 1000; background: rgba(12,6,10,.92); display: none; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+  #lb { position: fixed; inset: 0; z-index: 1000; background: rgba(12,6,10,.94); display: none; align-items: center; justify-content: center; padding: 60px 16px 70px; box-sizing: border-box; }
   #lb.on { display: flex; }
-  #lb video { max-width: 100%; max-height: 100%; height: 100%; aspect-ratio: 9/16; object-fit: contain; border-radius: 10px; background: #000; }
-  #lb button { position: absolute; top: 14px; right: 14px; width: 44px; height: 44px; margin: 0; padding: 0; border-radius: 999px; background: rgba(255,255,255,.14); color: #fff; font-size: 26px; line-height: 44px; }
-  #lb .lbcap { position: absolute; bottom: 14px; left: 0; right: 0; text-align: center; color: #fff; font-size: 14px; opacity: .85; }
+  #lb .stage { position: relative; height: 100%; max-width: 100%; display: flex; align-items: center; justify-content: center; touch-action: pan-y; }
+  #lb .stage img, #lb .stage video { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; background: #000; display: block; }
+  #lb button { position: absolute; margin: 0; padding: 0; width: 44px; height: 44px; border-radius: 999px; background: rgba(255,255,255,.16); color: #fff; font-size: 26px; line-height: 44px; }
+  #lb .x { top: 12px; right: 12px; }
+  #lb .nav { top: 50%; transform: translateY(-50%); font-size: 30px; }
+  #lb .prev { left: 10px; } #lb .next { right: 10px; }
+  #lb .nav[hidden] { display: none; }
+  #lb .count { position: absolute; top: 22px; left: 0; right: 0; text-align: center; color: #fff; font-size: 13px; font-weight: 600; pointer-events: none; }
+  #lb .dots { position: absolute; bottom: 44px; left: 0; right: 0; display: flex; gap: 6px; justify-content: center; pointer-events: none; }
+  #lb .dots i { width: 6px; height: 6px; border-radius: 99px; background: rgba(255,255,255,.35); }
+  #lb .dots i.on { background: #fff; }
+  #lb .lbcap { position: absolute; bottom: 14px; left: 16px; right: 16px; text-align: center; color: #fff; font-size: 14px; opacity: .85; }
+  .tile [data-slide] { display: none !important; }
   .tile.photo { cursor: zoom-in; }
-  .tile.photo::after { content: "\25B6"; position: absolute; top: 7px; right: 7px; width: 22px; height: 22px; border-radius: 999px; background: rgba(0,0,0,.45); color: #fff; font-size: 10px; display: grid; place-items: center; }
+  .tile.photo::after { content: "\2922"; position: absolute; top: 7px; right: 7px; width: 22px; height: 22px; border-radius: 999px; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; display: grid; place-items: center; }
+  .tile.photo.is-video::after { content: "\25B6"; font-size: 10px; }
+  .tile.photo.is-carousel::after { content: attr(data-n); width: auto; padding: 0 7px; font-size: 10.5px; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -43,9 +55,9 @@
   </form>
 </div>
 <div id="page" hidden></div>
-<div id="lb" role="dialog" aria-modal="true" aria-label="Video preview"><button type="button" aria-label="Close">&times;</button><video controls playsinline loop></video><div class="lbcap"></div></div>
+<div id="lb" role="dialog" aria-modal="true" aria-label="Post preview"><div class="count"></div><div class="stage"></div><button type="button" class="nav prev" aria-label="Previous slide">&lsaquo;</button><button type="button" class="nav next" aria-label="Next slide">&rsaquo;</button><button type="button" class="x" aria-label="Close">&times;</button><div class="dots"></div><div class="lbcap"></div></div>
 <script>
-const SALT = '24c17416838658bf5de345e1ced7cb36', ITER = 250000;
+const SALT = 'b58fa1adc0a5799309195fec995fa778', ITER = 250000;
 const hex = h => new Uint8Array(h.match(/../g).map(b => parseInt(b, 16)));
 const norm = p => p.toLowerCase().split(/\s+/).filter(Boolean).join(' ');
 async function keyFor(pw) {
@@ -81,18 +93,52 @@ f.addEventListener('submit', async e => {
   page.innerHTML = html;
   document.getElementById('gate').remove();
   page.hidden = false;
-  page.querySelectorAll('video').forEach(v => { v.muted = true; v.play().catch(() => {}); });
-  const lb = document.getElementById('lb'), lv = lb.querySelector('video'), lc = lb.querySelector('.lbcap');
-  const close = () => { lb.classList.remove('on'); lv.pause(); lv.removeAttribute('src'); lv.load(); };
-  page.querySelectorAll('.tile video').forEach(v => {
-    const t = v.closest('.tile');
+  page.querySelectorAll('video:not([data-slide])').forEach(v => { v.muted = true; v.play().catch(() => {}); });
+  const lb = document.getElementById('lb'), stage = lb.querySelector('.stage'), lc = lb.querySelector('.lbcap'),
+        cnt = lb.querySelector('.count'), dots = lb.querySelector('.dots'), prev = lb.querySelector('.prev'), next = lb.querySelector('.next');
+  let slides = [], idx = 0;
+  const show = i => {
+    idx = (i + slides.length) % slides.length;
+    stage.querySelectorAll('video').forEach(v => v.pause());
+    stage.innerHTML = '';
+    const s = slides[idx], el = document.createElement(s.video ? 'video' : 'img');
+    el.src = s.src;
+    if (s.video) { el.controls = true; el.playsInline = true; el.loop = true; el.muted = false; el.play().catch(() => { el.muted = true; el.play(); }); }
+    else el.alt = '';
+    stage.appendChild(el);
+    const multi = slides.length > 1;
+    prev.hidden = next.hidden = !multi;
+    cnt.textContent = multi ? (idx + 1) + ' / ' + slides.length : '';
+    dots.innerHTML = multi ? slides.map((_, k) => '<i' + (k === idx ? ' class="on"' : '') + '></i>').join('') : '';
+  };
+  const close = () => { lb.classList.remove('on'); stage.querySelectorAll('video').forEach(v => v.pause()); stage.innerHTML = ''; };
+  page.querySelectorAll('.tile').forEach(t => {
+    const media = [...t.querySelectorAll('img, video')];
+    if (!media.length) return;
+    const list = media.map(m => ({ src: m.currentSrc || m.src, video: m.tagName === 'VIDEO' }));
+    t.classList.add('photo');
+    if (list.length > 1) { t.classList.add('is-carousel'); t.dataset.n = '1/' + list.length; }
+    else if (list[0].video) t.classList.add('is-video');
     t.addEventListener('click', () => {
-      lv.src = v.currentSrc || v.src; lv.muted = false; lc.textContent = (t.querySelector('.cap')?.textContent || '').trim();
-      lb.classList.add('on'); lv.currentTime = 0; lv.play().catch(() => { lv.muted = true; lv.play(); });
+      slides = list; lc.textContent = (t.querySelector('.cap')?.textContent || '').trim();
+      lb.classList.add('on'); show(0);
     });
   });
-  lb.addEventListener('click', e => { if (e.target === lb || e.target.tagName === 'BUTTON') close(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && lb.classList.contains('on')) close(); });
+  prev.addEventListener('click', e => { e.stopPropagation(); show(idx - 1); });
+  next.addEventListener('click', e => { e.stopPropagation(); show(idx + 1); });
+  lb.addEventListener('click', e => { if (e.target === lb || e.target.classList.contains('x')) close(); });
+  document.addEventListener('keydown', e => {
+    if (!lb.classList.contains('on')) return;
+    if (e.key === 'Escape') close();
+    if (e.key === 'ArrowLeft') show(idx - 1);
+    if (e.key === 'ArrowRight') show(idx + 1);
+  });
+  let x0 = null;
+  stage.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+  stage.addEventListener('touchend', e => {
+    if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null;
+    if (Math.abs(dx) > 40 && slides.length > 1) show(idx + (dx < 0 ? 1 : -1));
+  });
 });
 </script>
 </body>
