@@ -45,7 +45,7 @@
 <div id="page" hidden></div>
 <div id="lb" role="dialog" aria-modal="true" aria-label="Video preview"><button type="button" aria-label="Close">&times;</button><video controls playsinline loop></video><div class="lbcap"></div></div>
 <script>
-const SALT = '1b72604f88a455b0b314404d8f0989b0', ITER = 250000;
+const SALT = 'cf544e57d122aa2a506dea2f2f0ccf06', ITER = 250000;
 const hex = h => new Uint8Array(h.match(/../g).map(b => parseInt(b, 16)));
 const norm = p => p.toLowerCase().split(/\s+/).filter(Boolean).join(' ');
 async function keyFor(pw) {
