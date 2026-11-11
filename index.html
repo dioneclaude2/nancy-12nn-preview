@@ -40,6 +40,7 @@
   .tile.photo { cursor: zoom-in; }
   .tile.photo::after { content: "\2922"; position: absolute; top: 7px; right: 7px; width: 22px; height: 22px; border-radius: 999px; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; display: grid; place-items: center; }
   .tile.photo.is-video::after { content: "\25B6"; font-size: 10px; }
+  .tile.photo.is-link::after { content: "\2197"; font-size: 12px; }
   .tile.photo.is-carousel::after { content: attr(data-n); width: auto; padding: 0 7px; font-size: 10.5px; font-weight: 700; }
 </style>
 </head>
@@ -57,7 +58,7 @@
 <div id="page" hidden></div>
 <div id="lb" role="dialog" aria-modal="true" aria-label="Post preview"><div class="count"></div><div class="stage"></div><button type="button" class="nav prev" aria-label="Previous slide">&lsaquo;</button><button type="button" class="nav next" aria-label="Next slide">&rsaquo;</button><button type="button" class="x" aria-label="Close">&times;</button><div class="dots"></div><div class="lbcap"></div></div>
 <script>
-const SALT = 'a3359531fb1ecf16795f817d810ef5b1', ITER = 250000;
+const SALT = '56f1c5a5991212d2ddb0b2c688426c44', ITER = 250000;
 const hex = h => new Uint8Array(h.match(/../g).map(b => parseInt(b, 16)));
 const norm = p => p.toLowerCase().split(/\s+/).filter(Boolean).join(' ');
 async function keyFor(pw) {
@@ -127,7 +128,11 @@ f.addEventListener('submit', async e => {
     dots.innerHTML = multi ? slides.map((_, k) => '<i' + (k === idx ? ' class="on"' : '') + '></i>').join('') : '';
   };
   const close = () => { lb.classList.remove('on'); stage.querySelectorAll('video').forEach(v => v.pause()); stage.innerHTML = ''; };
-  page.querySelectorAll('.tile').forEach(t => {
+  page.querySelectorAll('.tile[data-href]').forEach(t => {
+    t.classList.add('photo', 'is-link');
+    t.addEventListener('click', e => { e.stopImmediatePropagation(); window.open(t.dataset.href, '_blank', 'noopener'); }, true);
+  });
+  page.querySelectorAll('.tile:not([data-href])').forEach(t => {
     const media = [...t.querySelectorAll('img, video')];
     if (!media.length) return;
     const list = media.map(m => ({ el: m, poster: m.getAttribute('poster') || '', video: m.tagName === 'VIDEO' }));
