@@ -57,7 +57,7 @@
 <div id="page" hidden></div>
 <div id="lb" role="dialog" aria-modal="true" aria-label="Post preview"><div class="count"></div><div class="stage"></div><button type="button" class="nav prev" aria-label="Previous slide">&lsaquo;</button><button type="button" class="nav next" aria-label="Next slide">&rsaquo;</button><button type="button" class="x" aria-label="Close">&times;</button><div class="dots"></div><div class="lbcap"></div></div>
 <script>
-const SALT = 'b58fa1adc0a5799309195fec995fa778', ITER = 250000;
+const SALT = '6660bde90cf0d729c82807efe90c0b7a', ITER = 250000;
 const hex = h => new Uint8Array(h.match(/../g).map(b => parseInt(b, 16)));
 const norm = p => p.toLowerCase().split(/\s+/).filter(Boolean).join(' ');
 async function keyFor(pw) {
@@ -80,20 +80,33 @@ f.addEventListener('submit', async e => {
   } catch (err) {
     msg.className = 'err'; msg.textContent = 'That password is not right. Try again.'; go.disabled = false; return;
   }
-  let html = data.html, done = 0;
-  for (const a of data.assets) {
-    msg.textContent = `Loading ${++done} of ${data.assets.length}…`;
-    let buf;
-    try { buf = await open1(key, a.f); } catch (err) { msg.className = 'err'; msg.textContent = 'The page was just updated. Please refresh and try again.'; go.disabled = false; return; }
-    const url = URL.createObjectURL(new Blob([buf], { type: a.m }));
-    html = html.split('"' + a.p + '"').join('"' + url + '"');
-  }
+  let html = data.html;
+  const byPath = {}; data.assets.forEach(a => byPath[a.p] = a);
+  const cache = {};
+  const blobUrl = a => cache[a.p] || (cache[a.p] = open1(key, a.f).then(buf => URL.createObjectURL(new Blob([buf], { type: a.m }))));
+  const eager = data.assets.filter(a => a.e);
+  msg.textContent = 'Opening…';
+  let urls;
+  try { urls = await Promise.all(eager.map(blobUrl)); }
+  catch (err) { msg.className = 'err'; msg.textContent = 'The page was just updated. Please refresh and try again.'; go.disabled = false; return; }
+  eager.forEach((a, i) => { html = html.split('"' + a.p + '"').join('"' + urls[i] + '"'); });
   document.title = data.title;
   const page = document.getElementById('page');
   page.innerHTML = html;
   document.getElementById('gate').remove();
   page.hidden = false;
-  page.querySelectorAll('video:not([data-slide])').forEach(v => { v.muted = true; v.play().catch(() => {}); });
+  const vids = [...page.querySelectorAll('video[data-src]')];
+  (async () => {
+    let i = 0;
+    const worker = async () => { while (i < vids.length) { const v = vids[i++]; const a = byPath[v.dataset.src]; if (!a) continue;
+      try { v.src = await blobUrl(a); v.muted = true; v.loop = true; if (!v.hasAttribute('data-slide')) v.play().catch(() => {}); } catch (e) {} } };
+    await Promise.all([worker(), worker(), worker()]);
+  })();
+  const fullSrc = async m => {
+    if (m.tagName !== 'VIDEO') return m.currentSrc || m.src;
+    const a = byPath[m.dataset.full] || byPath[m.dataset.src];
+    return a ? blobUrl(a) : (m.currentSrc || m.src);
+  };
   const lb = document.getElementById('lb'), stage = lb.querySelector('.stage'), lc = lb.querySelector('.lbcap'),
         cnt = lb.querySelector('.count'), dots = lb.querySelector('.dots'), prev = lb.querySelector('.prev'), next = lb.querySelector('.next');
   let slides = [], idx = 0;
@@ -102,9 +115,11 @@ f.addEventListener('submit', async e => {
     stage.querySelectorAll('video').forEach(v => v.pause());
     stage.innerHTML = '';
     const s = slides[idx], el = document.createElement(s.video ? 'video' : 'img');
-    el.src = s.src;
-    if (s.video) { el.controls = true; el.playsInline = true; el.loop = true; el.muted = false; el.play().catch(() => { el.muted = true; el.play(); }); }
-    else el.alt = '';
+    const my = idx;
+    if (s.video) {
+      el.controls = true; el.playsInline = true; el.loop = true; if (s.poster) el.poster = s.poster;
+      fullSrc(s.el).then(u => { if (my !== idx || !lb.classList.contains('on')) return; el.src = u; el.muted = false; el.play().catch(() => { el.muted = true; el.play(); }); });
+    } else { el.src = s.el.currentSrc || s.el.src; el.alt = ''; }
     stage.appendChild(el);
     const multi = slides.length > 1;
     prev.hidden = next.hidden = !multi;
@@ -115,7 +130,7 @@ f.addEventListener('submit', async e => {
   page.querySelectorAll('.tile').forEach(t => {
     const media = [...t.querySelectorAll('img, video')];
     if (!media.length) return;
-    const list = media.map(m => ({ src: m.currentSrc || m.src, video: m.tagName === 'VIDEO' }));
+    const list = media.map(m => ({ el: m, poster: m.getAttribute('poster') || '', video: m.tagName === 'VIDEO' }));
     t.classList.add('photo');
     if (list.length > 1) { t.classList.add('is-carousel'); t.dataset.n = '1/' + list.length; }
     else if (list[0].video) t.classList.add('is-video');
