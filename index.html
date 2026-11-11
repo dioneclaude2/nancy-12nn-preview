@@ -37,7 +37,7 @@
 </div>
 <div id="page" hidden></div>
 <script>
-const SALT = '0659ddb6a9cd77c67c260391b3444fb7', ITER = 250000;
+const SALT = 'a58a70cd2943142c435fc880fbac7952', ITER = 250000;
 const hex = h => new Uint8Array(h.match(/../g).map(b => parseInt(b, 16)));
 const norm = p => p.toLowerCase().split(/\s+/).filter(Boolean).join(' ');
 async function keyFor(pw) {
