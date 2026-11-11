@@ -24,6 +24,7 @@
   #msg.err { color: var(--err); }
   #lb { position: fixed; inset: 0; z-index: 1000; background: rgba(12,6,10,.94); display: none; align-items: center; justify-content: center; padding: 60px 16px 70px; box-sizing: border-box; }
   #lb.on { display: flex; }
+  #lb.has-ref { padding-bottom: 120px; }
   #lb .stage { position: relative; height: 100%; max-width: 100%; display: flex; align-items: center; justify-content: center; touch-action: pan-y; }
   #lb .stage img, #lb .stage video { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; background: #000; display: block; }
   #lb button { position: absolute; margin: 0; padding: 0; width: 44px; height: 44px; border-radius: 999px; background: rgba(255,255,255,.16); color: #fff; font-size: 26px; line-height: 44px; }
@@ -35,13 +36,14 @@
   #lb .dots { position: absolute; bottom: 44px; left: 0; right: 0; display: flex; gap: 6px; justify-content: center; pointer-events: none; }
   #lb .dots i { width: 6px; height: 6px; border-radius: 99px; background: rgba(255,255,255,.35); }
   #lb .dots i.on { background: #fff; }
+  #lb .refbtn { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); padding: 10px 18px; border-radius: 999px; background: #fff; color: #2A1A24; font-size: 14px; font-weight: 600; text-decoration: none; }
+  #lb .refbtn[hidden] { display: none; }
   #lb .lbcap { position: absolute; bottom: 14px; left: 16px; right: 16px; text-align: center; color: #fff; font-size: 14px; opacity: .85; }
   .tile [data-slide] { display: none !important; }
   .tile.photo { cursor: zoom-in; }
   .tile.photo::after { content: "\2922"; position: absolute; top: 7px; right: 7px; width: 22px; height: 22px; border-radius: 999px; background: rgba(0,0,0,.45); color: #fff; font-size: 11px; display: grid; place-items: center; }
   .tile.photo.is-video::after { content: "\25B6"; font-size: 10px; }
-  .tile.photo.is-link::after { content: "\2197"; font-size: 12px; }
-  .tile.photo.is-carousel::after { content: attr(data-n); width: auto; padding: 0 7px; font-size: 10.5px; font-weight: 700; }
+    .tile.photo.is-carousel::after { content: attr(data-n); width: auto; padding: 0 7px; font-size: 10.5px; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -56,9 +58,9 @@
   </form>
 </div>
 <div id="page" hidden></div>
-<div id="lb" role="dialog" aria-modal="true" aria-label="Post preview"><div class="count"></div><div class="stage"></div><button type="button" class="nav prev" aria-label="Previous slide">&lsaquo;</button><button type="button" class="nav next" aria-label="Next slide">&rsaquo;</button><button type="button" class="x" aria-label="Close">&times;</button><div class="dots"></div><div class="lbcap"></div></div>
+<div id="lb" role="dialog" aria-modal="true" aria-label="Post preview"><div class="count"></div><div class="stage"></div><button type="button" class="nav prev" aria-label="Previous slide">&lsaquo;</button><button type="button" class="nav next" aria-label="Next slide">&rsaquo;</button><button type="button" class="x" aria-label="Close">&times;</button><div class="dots"></div><a class="refbtn" target="_blank" rel="noopener" hidden>See reference &#8599;</a><div class="lbcap"></div></div>
 <script>
-const SALT = '4ff61d2407ca179c89c086cb9eb07707', ITER = 250000;
+const SALT = '67bba9ee21be514eea35e88a9db1063f', ITER = 250000;
 const hex = h => new Uint8Array(h.match(/../g).map(b => parseInt(b, 16)));
 const norm = p => p.toLowerCase().split(/\s+/).filter(Boolean).join(' ');
 async function keyFor(pw) {
@@ -128,11 +130,7 @@ f.addEventListener('submit', async e => {
     dots.innerHTML = multi ? slides.map((_, k) => '<i' + (k === idx ? ' class="on"' : '') + '></i>').join('') : '';
   };
   const close = () => { lb.classList.remove('on'); stage.querySelectorAll('video').forEach(v => v.pause()); stage.innerHTML = ''; };
-  page.querySelectorAll('.tile[data-href]').forEach(t => {
-    t.classList.add('photo', 'is-link');
-    t.addEventListener('click', e => { e.stopImmediatePropagation(); window.open(t.dataset.href, '_blank', 'noopener'); }, true);
-  });
-  page.querySelectorAll('.tile:not([data-href])').forEach(t => {
+  page.querySelectorAll('.tile').forEach(t => {
     const media = [...t.querySelectorAll('img, video')];
     if (!media.length) return;
     const list = media.map(m => ({ el: m, poster: m.getAttribute('poster') || '', video: m.tagName === 'VIDEO' }));
@@ -140,6 +138,7 @@ f.addEventListener('submit', async e => {
     if (list.length > 1) { t.classList.add('is-carousel'); t.dataset.n = '1/' + list.length; }
     else if (list[0].video) t.classList.add('is-video');
     t.addEventListener('click', () => {
+      const rb = lb.querySelector('.refbtn'); if (t.dataset.href) { rb.href = t.dataset.href; rb.hidden = false; lb.classList.add('has-ref'); } else { rb.hidden = true; lb.classList.remove('has-ref'); }
       slides = list; lc.textContent = (t.querySelector('.cap')?.textContent || '').trim();
       lb.classList.add('on'); show(0);
     });
