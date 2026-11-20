@@ -111,6 +111,11 @@ f.addEventListener('submit', async e => {
       try { v.src = await blobUrl(a); v.muted = true; v.loop = true; if (!v.hasAttribute('data-slide')) v.play().catch(() => {}); } catch (e) {} } };
     await Promise.all([worker(), worker(), worker()]);
   })();
+  (async () => {
+    const imgs = [...page.querySelectorAll('img[data-src]')]; let j = 0;
+    const w = async () => { while (j < imgs.length) { const im = imgs[j++]; const a = byPath[im.dataset.src]; if (!a) continue; try { im.src = await blobUrl(a); } catch (e) {} } };
+    await Promise.all([w(), w(), w()]);
+  })();
   const fullSrc = async m => {
     if (m.tagName !== 'VIDEO') return m.currentSrc || m.src;
     const a = byPath[m.dataset.full] || byPath[m.dataset.src];
@@ -136,7 +141,7 @@ f.addEventListener('submit', async e => {
         const t = el.currentTime || 0, wasMuted = el.muted;
         el.src = u; el.addEventListener('loadedmetadata', () => { try { el.currentTime = t; } catch (e) {} el.muted = wasMuted; el.play().catch(() => {}); }, { once: true });
       });
-    } else { el.src = s.el.currentSrc || s.el.src; el.alt = ''; }
+    } else { const q = s.el.currentSrc || s.el.getAttribute('src'); const a = byPath[s.el.dataset.src]; if (q) el.src = q; else if (a) blobUrl(a).then(u => { el.src = u; }); el.alt = ''; }
     stage.appendChild(el);
     const multi = slides.length > 1;
     prev.hidden = next.hidden = !multi;
